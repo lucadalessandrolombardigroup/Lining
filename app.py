@@ -21,37 +21,79 @@ def load_model_and_scalers():
 # ANALYTICAL MODEL (for validation)
 # --------------------------------------------------
 
-R = 5
 psi = 0
 p = 0
 
 
-def compute_d_r_R_permille(Erm, nu, sig_0, phi_rad, eta, psi, p):
+def compute_d_r_R_new(Erm, nu, gamma, h, R, phi_rad, coh, psi, p):
+    
+    G = Erm / (2 * (1 + nu))
     k = (1 + np.sin(phi_rad)) / (1 - np.sin(phi_rad))
+    k_psi = (1 + np.sin(psi)) / (1 - np.sin(psi))
+    
+    sig_0 = gamma*h
+    
+    lam = 1- p/sig_0
+    sig_c = (2 * coh * np.cos(phi_rad)) / (1 - np.sin(phi_rad))
+    lam_e = ((k - 1) * sig_0 + sig_c) / ((k + 1) * sig_0)
 
-    coh = (2 * sig_0 * np.tan(phi_rad)) / (
-        (1 + k) * ((eta + 1) ** (k - 1) - 2 / (1 + k))
-    )
 
-    # Radial displacement for MC criterion
-    Rpl = (2 / (1 + k) * (coh / np.tan(phi_rad) + sig_0) / (coh / np.tan(phi_rad) + p)) ** (1 / (k - 1))
-
-    if Rpl < 1:
-        d_r_R = 1e3 * (1 + nu) / Erm * (sig_0 - p)  # [permille]
+    den_lam_a = k - nu * (k + 1)
+    if den_lam_a != 0:
+        lam_a = lam_e * ((1 - nu) * (k + 1)) / den_lam_a
     else:
-        lam = (
-            ((1 - nu ** 2) * (k ** 2 - 1) * (coh / np.tan(phi_rad) + p))
-            / (Erm * (2 + (k - 1) * (1 - np.sin(psi))))
-            * (Rpl ** (2 / (1 - np.sin(psi)) + k - 1) * 1 ** (-2 / (1 - np.sin(psi))) - 1 ** (k - 1))
-        )
-        eps_tan_p = lam * (1 - np.sin(psi))
-        eps_tan_e = -(1 + nu) / Erm * (
-            (coh / np.tan(phi_rad) + sig_0) * (1 - 2 * nu)
-            - (coh / np.tan(phi_rad) + p) * 1 ** (k - 1) * (k * (1 - nu) - nu)
-        )
-        d_r_R = 1e3 * (eps_tan_p + eps_tan_e)  # [permille]
+        lam_a = np.nan
 
-    return d_r_R
+    print(f"Lambda: {lam} | Lambda_e: {lam_e} | Lambda_a: {lam_a}")
+    Rp = ((2*lam_e)/((k+1)*lam_e - (k-1)*lam)) ** (1 / (k - 1)) # sarebbe Rp /R
+    eta = (Rp - R)/R
+        
+    if lam <= lam_e:
+        u_r_R =  (1 + nu) / Erm * (sig_0 - p) 
+        return u_r_R , eta 
+    
+    elif lam_e < lam <= lam_a:
+ 
+        F1 = -(1 - 2*nu) * (k + 1) / (k - 1)
+        num_F2 = 2 * (1 + k * k_psi - nu * (k + 1) * (k_psi + 1))
+        den_F2 = (k - 1) * (k + k_psi)
+        F2 = num_F2 / den_F2
+        F3 = 2 * (1 - nu) * (k + 1) / (k + k_psi)
+
+        term_parentesi = F1 + F2 * ((1/Rp)**(k - 1)) + F3 * (Rp**(k_psi + 1))
+        u_r_R = lam_e * (sig_0 / (2 * G)) * term_parentesi
+        
+        return u_r_R , eta 
+    
+    else: # lam > lam_a
+
+        num_Ra = (1 - 2*nu) * (k + 1) * lam_e
+        den_Ra = ((1 - nu) * k - nu) * ((k + 1) * lam_e - (k - 1) * lam)
+        Ra = (num_Ra / den_Ra) ** (1 / (k - 1))
+
+        F1 = -(1 - 2*nu) * (k + 1) / (k - 1)
+        num_F2 = 2 * (1 + k * k_psi - nu * (k + 1) * (k_psi + 1))
+        den_F2 = (k - 1) * (k + k_psi)
+        F2 = num_F2 / den_F2
+        F3 = 2 * (1 - nu) * (k + 1) / (k + k_psi)
+
+        A1 = - ((1 - 2*nu) / (1 + nu)) * ((k + 1) / (k - 1)) * ((2*k_psi + 1) / (k_psi + 1)) # da verificare l'ultima tonda perche cambiata rispetto le formule
+        
+        # A2
+        num_A2 = 2 * (1 + 2*k*k_psi - 2*nu*(k + k_psi + k*k_psi))
+        den_A2 = (1 + nu) * (k - 1) * (k + k_psi)
+        A2 = num_A2 / den_A2
+        
+        # A3
+        term1_A3 = (F1 - A1) * (Ra/Rp)**(k_psi + 1)
+        term2_A3 = (F2 - A2) * (Ra/Rp)**(k + k_psi)
+        A3 = term1_A3 + term2_A3 + F3
+
+        term_parentesi = A1 + A2 * ((1/Rp)**(k - 1)) + A3 * (Rp**(k_psi + 1))
+        u_r_R = lam_e * (sig_0 / (2 * G)) * term_parentesi
+
+        return u_r_R , eta 
+
 
 
 model, scaler_X, scaler_y = load_model_and_scalers()
@@ -70,31 +112,27 @@ st.write(
 """
 )
 
-# --------------------------------------------------
-# INPUT PARAMETERS
-# --------------------------------------------------
+col1, col2 = st.columns(2)
+with col1:
+    gamma = st.number_input("Unit weight γ (kN/m³)", min_value=0.0, value=25.0, step=0.5)
+with col2:
+    h = st.number_input("Overburden H (m)", min_value=0.0, value=100.0, step=10.0)
 
-nu = st.number_input(
-    "Poisson ratio ν",
-    min_value=0.0,
-    value=0.2,
-    step = 0.05
-)
+col3, col4, col5 = st.columns(3)
+with col3:
+    R = st.number_input("Tunnel radius R (m)", min_value=0.0, value=5.0, step=0.5)
+with col4:
+    E = st.number_input("Elastic modulus E (GPa)", min_value=0.0, value=5.0, step=0.5)
+with col5:
+    nu = st.number_input("Poisson ratio ν (-)", min_value=0.0, value=0.25, step=0.05)
 
-phi_deg = st.number_input(
-    "Friction angle φ (degrees)",
-    min_value=0.0,
-    value=30.0,
-    step = 5.0
-)
+col6, col7 = st.columns(2)
+with col6:
+    phi_deg = st.number_input("Friction angle φ (°)", min_value=0.0, value=30.0, step=1.0)
+with col7:
+    coh = st.number_input("Cohesion c (MPa)", min_value=0.0, value=1.0, step=0.1)
 
-eta = st.number_input(
-    "Normalized plastic zone η",
-    min_value=0.0,
-    value=2.0,
-    step = 0.5
-)
-
+st.divider()
 # --------------------------------------------------
 # CONVERT φ
 # --------------------------------------------------
@@ -107,20 +145,13 @@ phi_rad = np.radians(phi_deg)
 
 if st.button("Predict"):
 
+    y_true, eta = compute_d_r_R_new(E*1e9, nu, gamma*1e3, h, R, phi_rad, coh*1e6, psi, p)
     X = np.array([[nu, phi_rad, eta]])
     X_scaled = scaler_X.transform(X)
     y_pred_scaled = model.predict(X_scaled)
     y_pred = scaler_y.inverse_transform(y_pred_scaled)
+    y_pred = y_pred * R * (gamma*1e3) * h / (E*1e9)
 
-    Erm_ref = 1e6      # kPa
-    sig0_ref = 2.5e3   # kPa
-
-    d_r_R_permille = compute_d_r_R_permille(
-        Erm_ref, nu, sig0_ref, phi_rad, eta, psi, p
-    )
-    y_true = d_r_R_permille * Erm_ref / sig0_ref
-    
-    #st.latex(rf"\frac{{\delta_r}}{{R}} \cdot \frac{{E}}{{\sigma_0}} = {y_pred[0][0]:.2f}")
 
     error_percent = 100 * abs(y_pred[0][0] - y_true) / abs(y_true)
 
@@ -129,10 +160,12 @@ if st.button("Predict"):
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.metric("ANN prediction", f"{y_pred[0][0]:.2f}")
+        st.metric("ANN prediction", f"{y_pred[0][0]*1e3:.2f} (mm)")
 
     with col2:
-        st.metric("Analytical value", f"{y_true:.2f}")
+        st.metric("Analytical value", f"{y_true*1e3:.2f} (mm)")
 
     with col3:
-        st.metric("Error (%)", f"{error_percent:.3f}")
+        st.metric("Error (%)", f"{error_percent:.2f}")
+
+

@@ -8,16 +8,16 @@ import joblib
 # 1) LOAD MODEL AND SCALERS
 # =========================================================
 
-model = tf.keras.models.load_model("ANN_model/ann_surrogate.keras")
-scaler_X = joblib.load("ANN_model/scaler_X.pkl")
-scaler_y = joblib.load("ANN_model/scaler_y.pkl")
+model = tf.keras.models.load_model("ANN_model/ann_surrogate1.keras")
+scaler_X = joblib.load("ANN_model/scaler_X1.pkl")
+scaler_y = joblib.load("ANN_model/scaler_y1.pkl")
 
 # =========================================================
 # 2) LOAD DATASET
 # =========================================================
 
 df = pd.read_csv("dataset.csv")
-df["y_norm"] = df["d_r_R_permille"] * df["Erm_kPa"] / df["sig_0_kPa"]
+df["y_norm"] = df["d_r_R_new"] * df["Erm_kPa"] / df["sig_0_kPa"]
 
 # =========================================================
 # 3) PREDICTION FUNCTION
@@ -45,6 +45,7 @@ nu_list    = sorted(df["nu"].unique())
 Erm_list   = sorted(df["Erm_kPa"].unique())
 phi_train   = sorted(df["phi_rad"].unique())
 phi_extra_deg = [15, 25, 35, 45, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180]
+#phi_extra_deg = []
 phi_extra = np.radians(phi_extra_deg).tolist()
 phi_list = phi_train + phi_extra
 #phi_list = sorted(df["phi_rad"].unique())
@@ -52,6 +53,7 @@ eta_list   = sorted(df["eta"].unique())
 
 # intervallo continuo per curva ANN
 eta_interp = np.linspace(min(eta_list), max(eta_list), 200)
+#eta_extra  = np.linspace(max(eta_list), max(eta_list), 100)
 eta_extra  = np.linspace(max(eta_list), 20.0, 100)
 
 for sig_0 in sig_0_list:
@@ -138,7 +140,7 @@ for sig_0 in sig_0_list:
 
     fig.suptitle(f'ANN: d_r/R vs eta   (sig_0 = {sig_0:.0f} kPa)', fontsize=14)
     fig.supxlabel("eta [-]")
-    fig.supylabel("d_r/R * Erm/sig_0 [permille]")
+    fig.supylabel("d_r/R * Erm/sig_0")
 
     handles, labels = axes[0, 0].get_legend_handles_labels()
     fig.legend(handles, labels,
@@ -148,5 +150,5 @@ for sig_0 in sig_0_list:
                bbox_to_anchor=(0.5, 0.04))
 
     plt.tight_layout(rect=[0.05, 0.08, 0.95, 0.93])
-    plt.savefig(f"ANN_sig_0_{sig_0:.0f}_kPa_4.png")
+    plt.savefig(f"ANN_sig_0_{sig_0:.0f}_kPa_1.png")
     plt.close()

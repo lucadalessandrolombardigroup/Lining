@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 df = pd.read_csv("dataset.csv")
 
 # Target normalizzato
-df["y_norm"] = df["d_r_R_permille"] * df["Erm_kPa"] / df["sig_0_kPa"]
+df["y_norm"] = df["d_r_R_new"] * df["Erm_kPa"] / df["sig_0_kPa"]
 
 # Inputs
 X = df[["nu", "phi_rad", "eta"]].values.astype(np.float32)   #vedere se mettere 64
@@ -32,8 +32,8 @@ y_scaled = y_scaler.fit_transform(y.reshape(-1,1)).flatten()
 
 model = tf.keras.Sequential([
     tf.keras.layers.Input(shape=(3,)),
-    tf.keras.layers.Dense(64, activation="tanh"),
-    tf.keras.layers.Dense(64, activation="tanh"),
+    tf.keras.layers.Dense(64, activation="relu"),
+    tf.keras.layers.Dense(64, activation="relu"),
     tf.keras.layers.Dense(1, activation="linear")
 ])
 
@@ -88,14 +88,14 @@ plt.show()
 # =========================================================
 
 # Salva modello
-model.save("ann_surrogate.keras")
+model.save("ann_surrogate1.keras")
 
 # Salva scaler input
 import joblib
-joblib.dump(scaler_X, "scaler_X.pkl")
+joblib.dump(scaler_X, "scaler_X1.pkl")
 
 # Salva scaler target
-joblib.dump(y_scaler, "scaler_y.pkl")
+joblib.dump(y_scaler, "scaler_y1.pkl")
 
 print("Modello e scaler salvati.")
 
