@@ -114,23 +114,23 @@ st.write(
 
 col1, col2 = st.columns(2)
 with col1:
-    gamma = st.number_input("Unit weight γ (kN/m³)", min_value=0.0, value=25.0, step=0.5)
+    gamma = st.number_input("Unit weight γ (kN/m³)", min_value=0.0, value=0.0, step=1.0)
 with col2:
-    h = st.number_input("Overburden H (m)", min_value=0.0, value=100.0, step=10.0)
+    h = st.number_input("Overburden H (m)", min_value=0.0, value=0.0, step=10.0)
 
 col3, col4, col5 = st.columns(3)
 with col3:
-    R = st.number_input("Tunnel radius R (m)", min_value=0.0, value=5.0, step=0.5)
+    R = st.number_input("Tunnel radius R (m)", min_value=0.0, value=0.0, step=0.5)
 with col4:
-    E = st.number_input("Elastic modulus E (GPa)", min_value=0.0, value=5.0, step=0.5)
+    E = st.number_input("Elastic modulus E (GPa)", min_value=0.0, value=0.0, step=0.5)
 with col5:
-    nu = st.number_input("Poisson ratio ν (-)", min_value=0.0, value=0.25, step=0.05)
+    nu = st.number_input("Poisson ratio ν (-)", min_value=0.0, value=0.0, step=0.05)
 
 col6, col7 = st.columns(2)
 with col6:
-    phi_deg = st.number_input("Friction angle φ (°)", min_value=0.0, value=30.0, step=1.0)
+    phi_deg = st.number_input("Friction angle φ (°)", min_value=0.0, value=0.0, step=1.0)
 with col7:
-    coh = st.number_input("Cohesion c (MPa)", min_value=0.0, value=1.0, step=0.1)
+    coh = st.number_input("Cohesion c (MPa)", min_value=0.0, value=0.0, step=0.5)
 
 st.divider()
 # --------------------------------------------------
