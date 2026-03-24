@@ -50,7 +50,6 @@ def compute_d_r_R_new(Erm, nu, gamma, h, R, phi_rad, coh, psi, p):
         
     if lam <= lam_e:
         u_r_R =  (1 + nu) / Erm * (sig_0 - p) 
-        return u_r_R , eta 
     
     elif lam_e < lam <= lam_a:
  
@@ -63,7 +62,6 @@ def compute_d_r_R_new(Erm, nu, gamma, h, R, phi_rad, coh, psi, p):
         term_parentesi = F1 + F2 * ((1/Rp)**(k - 1)) + F3 * (Rp**(k_psi + 1))
         u_r_R = lam_e * (sig_0 / (2 * G)) * term_parentesi
         
-        return u_r_R , eta 
     
     else: # lam > lam_a
 
@@ -92,7 +90,7 @@ def compute_d_r_R_new(Erm, nu, gamma, h, R, phi_rad, coh, psi, p):
         term_parentesi = A1 + A2 * ((1/Rp)**(k - 1)) + A3 * (Rp**(k_psi + 1))
         u_r_R = lam_e * (sig_0 / (2 * G)) * term_parentesi
 
-        return u_r_R , eta 
+    return u_r_R , eta , lam, lam_e, lam_a
 
 
 
@@ -145,7 +143,7 @@ phi_rad = np.radians(phi_deg)
 
 if st.button("Predict"):
 
-    y_true, eta = compute_d_r_R_new(E*1e9, nu, gamma*1e3, h, R, phi_rad, coh*1e6, psi, p)
+    y_true, eta, lam, lam_e, lam_a = compute_d_r_R_new(E*1e9, nu, gamma*1e3, h, R, phi_rad, coh*1e6, psi, p)
     X = np.array([[nu, phi_rad, eta]])
     X_scaled = scaler_X.transform(X)
     y_pred_scaled = model.predict(X_scaled)
@@ -154,6 +152,29 @@ if st.button("Predict"):
 
 
     error_percent = 100 * abs(y_pred[0][0] - y_true) / abs(y_true)
+
+
+    # 1. Mostriamo prima i parametri derivati (come eta)
+    st.markdown("### Derived Parameters")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("η (Plastic Radius Ratio)", f"{eta:.2f}")
+    with c2:
+        st.metric("λ (Current)", f"{lam:.2f}")
+    with c3:
+        st.metric("λₑ (Elastic)", f"{lam_e:.2f}")
+    with c4:
+        st.metric("λₐ (Edge)", f"{lam_a:.2f}")
+
+    # Messaggio di stato del regime
+    if lam <= lam_e:
+        st.info("State: **ELASTIC**")
+    elif lam <= lam_a:
+        st.success("State: **PLASTIC (Face Mode)**")
+    else:
+        st.warning("State: **PLASTIC (Edge Mode)**")
+
+    st.divider()
 
     st.markdown("### Validation against analytical solution")
 
