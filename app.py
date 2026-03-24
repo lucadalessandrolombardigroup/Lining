@@ -128,7 +128,7 @@ with col5:
 
 col6, col7 = st.columns(2)
 with col6:
-    phi_deg = st.number_input("Friction angle φ (°)", min_value=0.0, value=0.0, step=1.0)
+    phi_deg = st.number_input("Friction angle φ (°)", min_value=0.0, value=0.0, step=5.0)
 with col7:
     coh = st.number_input("Cohesion c (MPa)", min_value=0.0, value=0.0, step=0.5)
 
@@ -145,7 +145,7 @@ phi_rad = np.radians(phi_deg)
 
 if st.button("Predict"):
     # Controllo preventivo per evitare divisioni per zero immediate
-    if R == 0 or E == 0 or gamma == 0 or h == 0 or nu or phi_rad or coh:
+    if R == 0 or E == 0 or gamma == 0 or h == 0 or nu == 0 or phi_rad == 0 or coh == 0:
         st.error("⚠️ Please ensure that parameters are greater than zero.")
     else:
 
