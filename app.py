@@ -46,10 +46,11 @@ def compute_d_r_R_new(Erm, nu, gamma, h, R, phi_rad, coh, psi, p):
 
     print(f"Lambda: {lam} | Lambda_e: {lam_e} | Lambda_a: {lam_a}")
     Rp = ((2*lam_e)/((k+1)*lam_e - (k-1)*lam)) ** (1 / (k - 1)) # sarebbe Rp /R
-    eta = (Rp - R)/R
+    eta = Rp - 1
         
     if lam <= lam_e:
-        u_r_R =  (1 + nu) / Erm * (sig_0 - p) 
+        u_r_R =  (1 + nu) / Erm * (sig_0 - p)
+        eta = 0.0
     
     elif lam_e < lam <= lam_a:
  
@@ -89,6 +90,7 @@ def compute_d_r_R_new(Erm, nu, gamma, h, R, phi_rad, coh, psi, p):
 
         term_parentesi = A1 + A2 * ((1/Rp)**(k - 1)) + A3 * (Rp**(k_psi + 1))
         u_r_R = lam_e * (sig_0 / (2 * G)) * term_parentesi
+        print("SONO QUA")
 
     return u_r_R , eta , lam, lam_e, lam_a
 
@@ -144,6 +146,7 @@ phi_rad = np.radians(phi_deg)
 if st.button("Predict"):
 
     y_true, eta, lam, lam_e, lam_a = compute_d_r_R_new(E*1e9, nu, gamma*1e3, h, R, phi_rad, coh*1e6, psi, p)
+    y_true = y_true * R
     X = np.array([[nu, phi_rad, eta]])
     X_scaled = scaler_X.transform(X)
     y_pred_scaled = model.predict(X_scaled)
@@ -169,7 +172,7 @@ if st.button("Predict"):
     # Messaggio di stato del regime
     if lam <= lam_e:
         st.info("State: **ELASTIC**")
-    elif lam <= lam_a:
+    elif lam_e < lam <= lam_a:
         st.success("State: **PLASTIC (Face Mode)**")
     else:
         st.warning("State: **PLASTIC (Edge Mode)**")
