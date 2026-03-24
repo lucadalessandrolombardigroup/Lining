@@ -144,52 +144,56 @@ phi_rad = np.radians(phi_deg)
 # --------------------------------------------------
 
 if st.button("Predict"):
-
-    y_true, eta, lam, lam_e, lam_a = compute_d_r_R_new(E*1e9, nu, gamma*1e3, h, R, phi_rad, coh*1e6, psi, p)
-    y_true = y_true * R
-    X = np.array([[nu, phi_rad, eta]])
-    X_scaled = scaler_X.transform(X)
-    y_pred_scaled = model.predict(X_scaled)
-    y_pred = scaler_y.inverse_transform(y_pred_scaled)
-    y_pred = y_pred * R * (gamma*1e3) * h / (E*1e9)
-
-
-    error_percent = 100 * abs(y_pred[0][0] - y_true) / abs(y_true)
-
-
-    # 1. Mostriamo prima i parametri derivati (come eta)
-    st.markdown("### Derived Parameters")
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric("η (Plastic Radius Ratio)", f"{eta:.2f}")
-    with c2:
-        st.metric("λ (Current)", f"{lam:.2f}")
-    with c3:
-        st.metric("λₑ (Elastic)", f"{lam_e:.2f}")
-    with c4:
-        st.metric("λₐ (Edge)", f"{lam_a:.2f}")
-
-    # Messaggio di stato del regime
-    if lam <= lam_e:
-        st.info("State: **ELASTIC**")
-    elif lam_e < lam <= lam_a:
-        st.success("State: **PLASTIC (Face Mode)**")
+    # Controllo preventivo per evitare divisioni per zero immediate
+    if R == 0 or E == 0 or gamma == 0 or h == 0 or nu or phi_rad or coh:
+        st.error("⚠️ Please ensure that parameters are greater than zero.")
     else:
-        st.warning("State: **PLASTIC (Edge Mode)**")
 
-    st.divider()
+        y_true, eta, lam, lam_e, lam_a = compute_d_r_R_new(E*1e9, nu, gamma*1e3, h, R, phi_rad, coh*1e6, psi, p)
+        y_true = y_true * R
+        X = np.array([[nu, phi_rad, eta]])
+        X_scaled = scaler_X.transform(X)
+        y_pred_scaled = model.predict(X_scaled)
+        y_pred = scaler_y.inverse_transform(y_pred_scaled)
+        y_pred = y_pred * R * (gamma*1e3) * h / (E*1e9)
 
-    st.markdown("### Validation against analytical solution")
 
-    col1, col2, col3 = st.columns(3)
+        error_percent = 100 * abs(y_pred[0][0] - y_true) / abs(y_true)
 
-    with col1:
-        st.metric("ANN prediction", f"{y_pred[0][0]*1e3:.2f} (mm)")
 
-    with col2:
-        st.metric("Analytical value", f"{y_true*1e3:.2f} (mm)")
+        # 1. Mostriamo prima i parametri derivati (come eta)
+        st.markdown("### Derived Parameters")
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.metric("η (Plastic Radius Ratio)", f"{eta:.2f}")
+        with c2:
+            st.metric("λ (Current)", f"{lam:.2f}")
+        with c3:
+            st.metric("λₑ (Elastic)", f"{lam_e:.2f}")
+        with c4:
+            st.metric("λₐ (Edge)", f"{lam_a:.2f}")
 
-    with col3:
-        st.metric("Error (%)", f"{error_percent:.2f}")
+        # Messaggio di stato del regime
+        if lam <= lam_e:
+            st.info("State: **ELASTIC**")
+        elif lam_e < lam <= lam_a:
+            st.success("State: **PLASTIC (Face Mode)**")
+        else:
+            st.warning("State: **PLASTIC (Edge Mode)**")
+
+        st.divider()
+
+        st.markdown("### Validation against analytical solution")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric("ANN prediction", f"{y_pred[0][0]*1e3:.2f} (mm)")
+
+        with col2:
+            st.metric("Analytical value", f"{y_true*1e3:.2f} (mm)")
+
+        with col3:
+            st.metric("Error (%)", f"{error_percent:.2f}")
 
 
