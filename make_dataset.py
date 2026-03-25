@@ -9,7 +9,7 @@ psi = 0  # [rad]
 
 # Variable parameters
 sig_0_list = [2.5e3, 5e3, 10e3, 20e3]  # [kPa]
-eta_list   = [0, 1, 2, 3, 4, 5]        # [-]
+eta_list   = [0, 0.5, 1, 2, 3, 4, 5]        # [-]
 phi_list   = [10, 20, 30, 40, 50]      # [°]
 nu_list    = [0.1, 0.2, 0.3]           # [-]
 Erm_list   = [1e6, 5e6, 10e6]          # [kPa]  

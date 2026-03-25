@@ -10,9 +10,9 @@ import joblib
 @st.cache_resource
 def load_model_and_scalers():
 
-    model = tf.keras.models.load_model("ANN_model/ann_surrogate.keras")
-    scaler_X = joblib.load("ANN_model/scaler_X.pkl")
-    scaler_y = joblib.load("ANN_model/scaler_y.pkl")
+    model = tf.keras.models.load_model("ANN_model/ann_surrogate1.keras")
+    scaler_X = joblib.load("ANN_model/scaler_X1.pkl")
+    scaler_y = joblib.load("ANN_model/scaler_y1.pkl")
 
     return model, scaler_X, scaler_y
 
@@ -22,10 +22,8 @@ def load_model_and_scalers():
 # --------------------------------------------------
 
 psi = 0
-p = 0
 
-
-def compute_d_r_R_new(Erm, nu, gamma, h, R, phi_rad, coh, psi, p):
+def compute_d_r_R(Erm, nu, gamma, h, phi_rad, coh, psi, lam):
     
     G = Erm / (2 * (1 + nu))
     k = (1 + np.sin(phi_rad)) / (1 - np.sin(phi_rad))
@@ -33,7 +31,8 @@ def compute_d_r_R_new(Erm, nu, gamma, h, R, phi_rad, coh, psi, p):
     
     sig_0 = gamma*h
     
-    lam = 1- p/sig_0
+    #lam = 1- p/sig_0
+    p = (1 - lam) * sig_0
     sig_c = (2 * coh * np.cos(phi_rad)) / (1 - np.sin(phi_rad))
     lam_e = ((k - 1) * sig_0 + sig_c) / ((k + 1) * sig_0)
 
@@ -44,7 +43,6 @@ def compute_d_r_R_new(Erm, nu, gamma, h, R, phi_rad, coh, psi, p):
     else:
         lam_a = np.nan
 
-    print(f"Lambda: {lam} | Lambda_e: {lam_e} | Lambda_a: {lam_a}")
     Rp = ((2*lam_e)/((k+1)*lam_e - (k-1)*lam)) ** (1 / (k - 1)) # sarebbe Rp /R
     eta = Rp - 1
         
@@ -90,11 +88,8 @@ def compute_d_r_R_new(Erm, nu, gamma, h, R, phi_rad, coh, psi, p):
 
         term_parentesi = A1 + A2 * ((1/Rp)**(k - 1)) + A3 * (Rp**(k_psi + 1))
         u_r_R = lam_e * (sig_0 / (2 * G)) * term_parentesi
-        print("SONO QUA")
 
-    return u_r_R , eta , lam, lam_e, lam_a
-
-
+    return u_r_R , eta , p, lam_e, lam_a
 
 model, scaler_X, scaler_y = load_model_and_scalers()
 
@@ -130,7 +125,7 @@ col6, col7 = st.columns(2)
 with col6:
     phi_deg = st.number_input("Friction angle φ (°)", min_value=0.0, value=0.0, step=5.0)
 with col7:
-    coh = st.number_input("Cohesion c (MPa)", min_value=0.0, value=0.0, step=0.5)
+    coh = st.number_input("Cohesion c (kPa)", min_value=0.0, value=0.0, step=0.5)
 
 st.divider()
 # --------------------------------------------------
@@ -143,26 +138,80 @@ phi_rad = np.radians(phi_deg)
 # PREDICTION
 # --------------------------------------------------
 
+
+import matplotlib.pyplot as plt
+
 if st.button("Predict"):
-    # Controllo preventivo per evitare divisioni per zero immediate
-    if R == 0 or E == 0 or gamma == 0 or h == 0 or nu == 0 or phi_rad == 0 or coh == 0:
-        st.error("⚠️ Please ensure that parameters are greater than zero.")
+
+    if R <= 0 or E <= 0 or gamma <= 0 or h <= 0 or coh <= 0:
+        st.error("⚠️ Please ensure that geometry and material parameters are greater than zero.")
     else:
+        sig_0 = gamma * 1e3 * h   # Pa
+        Erm = E * 1e9             # Pa
+        c = coh * 1e3             # Pa
 
-        y_true, eta, lam, lam_e, lam_a = compute_d_r_R_new(E*1e9, nu, gamma*1e3, h, R, phi_rad, coh*1e6, psi, p)
-        y_true = y_true * R
-        X = np.array([[nu, phi_rad, eta]])
+        lam_list = np.linspace(0.0, 1.0, 101)
+
+        p_vals = []
+        u_analytical_vals = []
+        eta_vals = []
+
+        for lam in lam_list:
+            # Analytical solution
+            y_true, eta, p, lam_e, lam_a = compute_d_r_R(
+                Erm, nu, gamma * 1e3, h, phi_rad, c, psi, lam
+            )
+
+            u_true = y_true * R   
+
+            p_vals.append(p / 1e3)              
+            u_analytical_vals.append(u_true * 1e2)  # cm
+            eta_vals.append(eta)
+
+
+        lam_top = 1.0
+
+        y_true_top, eta_top, p_top, lam_e_top, lam_a_top = compute_d_r_R(
+            Erm, nu, gamma * 1e3, h, phi_rad, c, psi, lam_top
+        )
+
+        u_true_top = y_true_top * R   # m
+
+        # ANN input for the old model: [nu, phi_rad, eta]
+        X = np.array([[nu, phi_rad, eta_top]])
         X_scaled = scaler_X.transform(X)
-        y_pred_scaled = model.predict(X_scaled)
+        y_pred_scaled = model.predict(X_scaled, verbose=0)
         y_pred = scaler_y.inverse_transform(y_pred_scaled)
-        y_pred = y_pred * R * (gamma*1e3) * h / (E*1e9)
+
+        # assuming ANN output = (u/R) * (E/sig0)
+        u_pred_top = y_pred.item() * R * sig_0 / Erm   # m
+
+        error_percent = 100 * abs(u_pred_top - u_true_top) / abs(u_true_top)        
+
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.plot(p_vals, u_analytical_vals)
+
+        ax.scatter(
+            [p_top / 1e3],                # kPa
+            [u_pred_top * 1e2],           # cm
+            marker='o',
+            label="ANN prediction at p = 0",
+            color = 'green',
+            facecolors='none',
+            zorder=5
+        )
 
 
-        error_percent = 100 * abs(y_pred[0][0] - y_true) / abs(y_true)
+        ax.set_xlabel("Radial pressure (kPa)")
+        ax.set_ylabel("Radial displacement (cm)")
+        ax.set_title("Ground Reaction Curve")
+        ax.grid(True, linestyle='--', linewidth=0.5)
+        ax.legend()
+        st.pyplot(fig)
 
 
         # 1. Mostriamo prima i parametri derivati (come eta)
-        st.markdown("### Derived Parameters")
+        st.markdown("### Derived parameters (p=0)")
         c1, c2, c3, c4 = st.columns(4)
         with c1:
             st.metric("η (Plastic Radius Ratio)", f"{eta:.2f}")
@@ -183,17 +232,16 @@ if st.button("Predict"):
 
         st.divider()
 
-        st.markdown("### Validation against analytical solution")
+        st.markdown("### Validation against analytical solution (p=0)")
 
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.metric("ANN prediction", f"{y_pred[0][0]*1e3:.2f} (mm)")
+            st.metric("ANN prediction", f"{u_pred_top*1e2:.2f} (cm)")
 
         with col2:
-            st.metric("Analytical value", f"{y_true*1e3:.2f} (mm)")
+            st.metric("Analytical value", f"{u_true_top*1e2:.2f} (cm)")
 
         with col3:
             st.metric("Error (%)", f"{error_percent:.2f}")
-
 
